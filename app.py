@@ -1,50 +1,52 @@
 import streamlit as st
-import google.generative_ai as genai
-import os
+import requests
+import base64
 
 # --- 页面配置 ---
-st.set_page_config(page_title="Google AI 绘图", page_icon="🍌")
+st.set_page_config(page_title="Google Imagen 3 绘图", page_icon="🎨")
 
-st.title("🍌 Google AI 绘图神器")
-st.caption("Powered by Imagen 3 (Nano Banana)")
+st.title("🎨 Google Imagen 3 - REST 直连超轻版")
+st.caption("完全兼容 Streamlit Cloud，不依赖任何 Google SDK")
 
-# --- 侧边栏配置 ---
+# --- API Key 输入 ---
 with st.sidebar:
-    st.header("🔑 密钥设置")
-    google_api_key = st.text_input("Google API Key", type="password", help="请输入你的 AIza... 开头的密钥")
-    
-    st.info("💡 提示：此功能需要你的 API Key 拥有 Imagen 模型权限。")
+    st.header("🔑 设置 API Key")
+    api_key = st.text_input("Google API Key", type="password")
+    st.info("使用 REST 模式，无需安装 google-generative-ai SDK")
 
-# --- 主界面 ---
-prompt = st.text_area("请描述你想要的画面 (推荐用英文):", height=150, 
-                     placeholder="例如: A cute cyberpunk cat sitting on a neon rooftop, cinematic lighting, 8k resolution")
+# --- Prompt 输入 ---
+prompt = st.text_area("请输入绘图描述（建议英文）:", height=150)
 
-if st.button("🚀 开始生成", type="primary"):
+if st.button("🚀 开始生成"):
+    if not api_key:
+        st.error("请先输入 API Key")
+        st.stop()
     if not prompt:
-        st.warning("请先输入描述词！")
+        st.error("请先输入 Prompt 描述")
         st.stop()
 
-    if not google_api_key:
-        st.error("请先在侧边栏输入 Google API Key")
-        st.stop()
-        
+    st.info("🚧 正在联系 Google Imagen 3 API，请稍候...")
+
+    # Google Imagen 3 REST API URL
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-1:generate?key={api_key}"
+
+    payload = {
+        "prompt": prompt,
+        "size": "1024x1024"
+    }
+
     try:
-        genai.configure(api_key=google_api_key)
-        
-        # 尝试调用 Imagen 3 模型
-        # 如果这个 ID 报错，可以尝试换成 'imagen-2' 或 'imagen-3.0-generate-001'
-        model = genai.GenerativeModel('imagen-3.0-generate-001')
-        
-        with st.spinner("Google AI (Nano Banana) 正在绘图..."):
-            response = model.generate_content(prompt)
-            
-            if response.parts:
-                # 获取图片数据并显示
-                st.image(response.parts[0].inline_data.data, caption="Google 生成结果", use_column_width=True)
-                st.success("生成成功！")
-            else:
-                st.error("生成失败：API 返回了空数据。")
-                st.warning("可能原因：你的 API Key 暂时没有画图权限。")
-                
+        response = requests.post(url, json=payload)
+        data = response.json()
+
+        if "image" in data and "base64Data" in data["image"]:
+            img_b64 = data["image"]["base64Data"]
+            img_bytes = base64.b64decode(img_b64)
+            st.image(img_bytes, caption="Google Imagen 生成结果", use_column_width=True)
+            st.success("生成成功！")
+        else:
+            st.error("生成失败，API 返回数据如下：")
+            st.json(data)
+
     except Exception as e:
-        st.error(f"发生错误: {e}")
+        st.error(f"请求失败：{e}")
