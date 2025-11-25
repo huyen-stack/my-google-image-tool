@@ -1,1 +1,6 @@
-requests
+streamlit
+google-generativeai>=0.8.0
+yt-dlp
+opencv-python-headless
+Pillow
+numpy
